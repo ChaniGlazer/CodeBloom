@@ -28,7 +28,8 @@ async function checkAndProcessNextFile() {
 
   const token = process.env.YEMOT_TOKEN || '0774430795:325916039';
   const fileName = padNumber(fileIndex) + '.wav';
-  const yemotPath = `ivr2:/1/${fileName}`;
+  const phoneId = '0556784562' // להופיף לכאן קריאה מימות עם המספר טלפון
+  const yemotPath = `ivr2:/5/Phone/${phoneId}/${fileName}`;
   const downloadUrl = `https://www.call2all.co.il/ym/api/DownloadFile?token=${token}&path=${encodeURIComponent(yemotPath)}`;
   const uploadsDir = path.join(__dirname, 'uploads');
   const localFilePath = path.join(uploadsDir, fileName);
@@ -98,7 +99,7 @@ async function checkAndProcessNextFile() {
     console.log(`🔊 קובצי שמע נוצרו: ${mp3FileName}, ${wavFileName}`);
 
     // שליחת MP3
-    const mp3UploadPath = `ivr2:/3/${mp3FileName}`;
+    const mp3UploadPath = `ivr2:/5/Phone/${phoneId}/${mp3FileName}`;
     const mp3Url = `https://www.call2all.co.il/ym/api/UploadFile?token=${token}&path=${encodeURIComponent(mp3UploadPath)}`;
     const mp3Stream = fs.createReadStream(mp3FilePath);
     const mp3Form = new FormData();
@@ -107,7 +108,7 @@ async function checkAndProcessNextFile() {
     console.log(`📤 נשלח MP3: ${mp3FileName}`);
 
     // שליחת WAV
-    const wavUploadPath = `ivr2:/3/${wavFileName}`; // לאותה שלוחה כדי שימות ישמיע לפי הצורך
+    const wavUploadPath = `ivr2:/5/Phone/${phoneId}/${wavFileName}`; // לאותה שלוחה כדי שימות ישמיע לפי הצורך
     const wavUrl = `https://www.call2all.co.il/ym/api/UploadFile?token=${token}&path=${encodeURIComponent(wavUploadPath)}`;
     const wavStream = fs.createReadStream(wavFilePath);
     const wavForm = new FormData();
