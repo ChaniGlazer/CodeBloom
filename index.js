@@ -28,17 +28,21 @@ function padNumber(num) {
 
 // קבלת מספר טלפון מהשלוחה והעברת המתקשר לשלוחה 5
 app.post('/api/ym', (req, res) => {
+  console.log('📥 נתונים שהתקבלו מימות:', req.body); // לוג חשוב
+
   const phone = req.body.ApiPhone || '';
   if (phone) {
     phoneId = phone;
     console.log(`📞 מספר זוהה: ${phone}`);
   } else {
-    console.log('⚠️ לא התקבל מספר טלפון מהמערכת');
+    console.log('⚠️ לא התקבל מספר טלפון');
   }
 
-  // מעבר לשלוחה 5
-  res.json({ goto: '/5' });
+  const response = { goto: '/5' };
+  console.log('📤 מחזיר תגובה:', response);
+  res.json(response);
 });
+
 
 async function checkAndProcessNextFile() {
   if (isProcessing || !phoneId) return;
