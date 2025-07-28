@@ -11,38 +11,52 @@ const textToSpeech = require('@google-cloud/text-to-speech');
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const ttsClient = new textToSpeech.TextToSpeechClient();
 
 let fileIndex = 0;
 let isProcessing = false;
+let phoneId = ''; // יתעדכן מהקריאה של ימות
 const results = [];
 
 function padNumber(num) {
   return num.toString().padStart(3, '0');
 }
 
+// קבלת מספר טלפון מהשלוחה והעברת המתקשר לשלוחה 5
+app.post('/api/ym', (req, res) => {
+  const phone = req.body.ApiPhone || '';
+  if (phone) {
+    phoneId = phone;
+    console.log(`📞 מספר זוהה: ${phone}`);
+  } else {
+    console.log('⚠️ לא התקבל מספר טלפון מהמערכת');
+  }
+
+  // מעבר לשלוחה 5
+  res.json({ goto: '/5' });
+});
+
 async function checkAndProcessNextFile() {
-  if (isProcessing) return;
+  if (isProcessing || !phoneId) return;
   isProcessing = true;
 
   const token = process.env.YEMOT_TOKEN || '0774430795:325916039';
   const fileName = padNumber(fileIndex) + '.wav';
-  const phoneId = '0556784562' // להופיף לכאן קריאה מימות עם המספר טלפון
   const yemotPath = `ivr2:/5/Phone/${phoneId}/${fileName}`;
   const downloadUrl = `https://www.call2all.co.il/ym/api/DownloadFile?token=${token}&path=${encodeURIComponent(yemotPath)}`;
   const uploadsDir = path.join(__dirname, 'uploads');
   const localFilePath = path.join(uploadsDir, fileName);
 
   try {
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir);
-    }
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
     const response = await axios.get(downloadUrl, { responseType: 'stream' });
     const writer = fs.createWriteStream(localFilePath);
     response.data.pipe(writer);
-
     await new Promise((resolve, reject) => {
       writer.on('finish', resolve);
       writer.on('error', reject);
@@ -53,7 +67,7 @@ async function checkAndProcessNextFile() {
     const transcription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(localFilePath),
       model: 'whisper-1',
-      language: 'he', // הגדרת שפת התמלול כעברית
+      language: 'he',
     });
 
     console.log(`🎤 תמלול: ${transcription.text}`);
@@ -63,8 +77,7 @@ async function checkAndProcessNextFile() {
       messages: [
         {
           role: 'system',
-          content: `אתה עוזר דובר עברית, ענה בעברית בלבד, התשובות שלך צריכות להתאים לאמונה היהודית, תצא מנקודת הנחה שהמאזין שלך הוא יהודי מאמין מהעם היהודי ותענה תשובות מוחלטות בלי להוסיף שהתשובה היא לפי העם היהודי או לפי האמונה היהודית וכדומה, בלי מילים גסות וכדומה, תשובות קצרות, ברורות וממוקדות, שתואמות לאורח חיים חרדי ולטעם צנוע. 
-          אם מתקבלת שאלה הלכתית או שאלת הלכה, אל תענה עליה בעצמך, אלא אמור: "אני לא רב ולא פוסק הלכה, נא לפנות לרב או לפוסק הלכה מוסמך."`
+          content: `אתה עוזר דובר עברית...`
         },
         { role: 'user', content: transcription.text }
       ]
@@ -79,54 +92,44 @@ async function checkAndProcessNextFile() {
     const wavFilePath = path.join(uploadsDir, wavFileName);
 
     // יצירת MP3
-    const ttsRequestMP3 = {
+    const [mp3Response] = await ttsClient.synthesizeSpeech({
       input: { text: answer },
       voice: { languageCode: 'he-IL', ssmlGender: 'FEMALE' },
       audioConfig: { audioEncoding: 'MP3' },
-    };
-    const [mp3Response] = await ttsClient.synthesizeSpeech(ttsRequestMP3);
+    });
     await util.promisify(fs.writeFile)(mp3FilePath, mp3Response.audioContent, 'binary');
 
     // יצירת WAV
-    const ttsRequestWAV = {
+    const [wavResponse] = await ttsClient.synthesizeSpeech({
       input: { text: answer },
       voice: { languageCode: 'he-IL', ssmlGender: 'FEMALE' },
       audioConfig: { audioEncoding: 'LINEAR16' },
-    };
-    const [wavResponse] = await ttsClient.synthesizeSpeech(ttsRequestWAV);
+    });
     await util.promisify(fs.writeFile)(wavFilePath, wavResponse.audioContent, 'binary');
 
     console.log(`🔊 קובצי שמע נוצרו: ${mp3FileName}, ${wavFileName}`);
 
-    // שליחת MP3
+    // שליחת קבצים
     const mp3UploadPath = `ivr2:/5/Phone/${phoneId}/${mp3FileName}`;
-    const mp3Url = `https://www.call2all.co.il/ym/api/UploadFile?token=${token}&path=${encodeURIComponent(mp3UploadPath)}`;
     const mp3Stream = fs.createReadStream(mp3FilePath);
     const mp3Form = new FormData();
     mp3Form.append('file', mp3Stream, { filename: mp3FileName });
-    await axios.post(mp3Url, mp3Form, { headers: mp3Form.getHeaders() });
-    console.log(`📤 נשלח MP3: ${mp3FileName}`);
+    await axios.post(`https://www.call2all.co.il/ym/api/UploadFile?token=${token}&path=${encodeURIComponent(mp3UploadPath)}`, mp3Form, { headers: mp3Form.getHeaders() });
 
-    // שליחת WAV
-    const wavUploadPath = `ivr2:/5/Phone/${phoneId}/${wavFileName}`; // לאותה שלוחה כדי שימות ישמיע לפי הצורך
-    const wavUrl = `https://www.call2all.co.il/ym/api/UploadFile?token=${token}&path=${encodeURIComponent(wavUploadPath)}`;
+    const wavUploadPath = `ivr2:/5/Phone/${phoneId}/${wavFileName}`;
     const wavStream = fs.createReadStream(wavFilePath);
     const wavForm = new FormData();
     wavForm.append('file', wavStream, { filename: wavFileName });
-    await axios.post(wavUrl, wavForm, { headers: wavForm.getHeaders() });
-    console.log(`📤 נשלח WAV: ${wavFileName}`);
+    await axios.post(`https://www.call2all.co.il/ym/api/UploadFile?token=${token}&path=${encodeURIComponent(wavUploadPath)}`, wavForm, { headers: wavForm.getHeaders() });
 
-    results.push({
-      index: baseName,
-      transcription: transcription.text,
-      answer
-    });
+    console.log(`📤 קבצים הועלו לשלוחה`);
 
+    results.push({ index: baseName, transcription: transcription.text, answer });
     if (results.length > 10) results.shift();
     fileIndex++;
 
   } catch (err) {
-    if (err.response && err.response.status === 404) {
+    if (err.response?.status === 404) {
       console.log(`🔍 קובץ ${fileName} לא נמצא, מנסה שוב...`);
     } else {
       console.error('❌ שגיאה:', err.message);
@@ -136,34 +139,27 @@ async function checkAndProcessNextFile() {
   }
 }
 
-setInterval(checkAndProcessNextFile, 2000);
+setInterval(checkAndProcessNextFile, 1000);
 
 app.get('/results', (req, res) => {
   res.json(results);
 });
 
 app.get('/', (req, res) => {
-  res.send('השרת פעיל');
+  res.send('✅ השרת פעיל');
 });
 
-
-app.listen(port, () => {
-  console.log(`🚀 השרת רץ על http://localhost:${port}`);
-});
-
-
-
+// פינג עצמי
 async function selfPing() {
   try {
     const url = process.env.SELF_PING_URL || `http://localhost:${port}/`;
-    console.log(`מבצע פינג עצמי לכתובת: ${url}`);
     await axios.get(url);
-    console.log(`✅ פינג עצמי הצליח ל-${url}`);
   } catch (err) {
-    console.error('❌ שגיאה בפינג עצמי:', err.message);
+    console.error('❌ שגיאה בפינג:', err.message);
   }
 }
+setInterval(selfPing, 60 * 10000);
 
-// הפעלת הפינג העצמי כל דקה
-setInterval(selfPing, 60 * 1000);
-
+app.listen(port, () => {
+  console.log(`🚀 השרת פעיל על http://localhost:${port}`);
+});
