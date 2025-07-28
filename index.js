@@ -152,7 +152,7 @@ async function checkAndProcessNextFile() {
 }
 
 // הרצת בדיקת קובץ כל שנייה
-setInterval(checkAndProcessNextFile, 1000);
+setInterval(checkAndProcessNextFile, 500);
 
 // מסך צפייה בתוצאות
 app.get('/results', (req, res) => {
