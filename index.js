@@ -1,3 +1,4 @@
+// ייבוא ספריות
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -8,27 +9,32 @@ const FormData = require('form-data');
 const util = require('util');
 const textToSpeech = require('@google-cloud/text-to-speech');
 
+// יצירת אפליקציה ב-Express
 const app = express();
 const port = process.env.PORT || 3000;
 
+// אמצעים לפענוח גוף הבקשה
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+// הגדרת הלקוחות ל־OpenAI ו־Google Text to Speech
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const ttsClient = new textToSpeech.TextToSpeechClient();
 
+// משתנים גלובליים
 let fileIndex = 0;
 let isProcessing = false;
-let phoneId = ''; // יתעדכן מהקריאה של ימות
-const results = [];
+let phoneId = ''; // מספר הטלפון הנוכחי
+const results = []; // שמירת תוצאות תמלול ותשובות
 
+// פונקציה לעיצוב שם קובץ (001, 002 וכו')
 function padNumber(num) {
   return num.toString().padStart(3, '0');
 }
 
-// קבלת מספר טלפון מהשלוחה והעברת המתקשר לשלוחה 5
+// נקודת API של ימות לשלוחה
 app.post('/api/ym', (req, res) => {
-  console.log('📥 נתונים שהתקבלו מימות:', req.body); // לוג חשוב
+  console.log('📥 נתונים שהתקבלו מימות:', req.body);
 
   const phone = req.body.ApiPhone || '';
   if (phone) {
@@ -38,12 +44,16 @@ app.post('/api/ym', (req, res) => {
     console.log('⚠️ לא התקבל מספר טלפון');
   }
 
+  // תגובה שמעבירה את המתקשר לשלוחה 5
   const response = { goto: '/5' };
   console.log('📤 מחזיר תגובה:', response);
-  res.json(response);
+
+  // שליחת תגובה בפורמט שימות דורשים
+  res.setHeader('Content-Type', 'application/json');
+  res.send(JSON.stringify(response));
 });
 
-
+// עיבוד קובצי הקלטה שנקלטו בשלוחה 5
 async function checkAndProcessNextFile() {
   if (isProcessing || !phoneId) return;
   isProcessing = true;
@@ -68,6 +78,7 @@ async function checkAndProcessNextFile() {
 
     console.log(`✅ קובץ ${fileName} הורד`);
 
+    // תמלול הקובץ
     const transcription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(localFilePath),
       model: 'whisper-1',
@@ -76,13 +87,11 @@ async function checkAndProcessNextFile() {
 
     console.log(`🎤 תמלול: ${transcription.text}`);
 
+    // שליחת השאלה ל-ChatGPT
     const chatResponse = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        {
-          role: 'system',
-          content: `אתה עוזר דובר עברית...`
-        },
+        { role: 'system', content: `אתה עוזר דובר עברית...` },
         { role: 'user', content: transcription.text }
       ]
     });
@@ -113,21 +122,20 @@ async function checkAndProcessNextFile() {
 
     console.log(`🔊 קובצי שמע נוצרו: ${mp3FileName}, ${wavFileName}`);
 
-    // שליחת קבצים
+    // העלאת הקבצים חזרה לימות
     const mp3UploadPath = `ivr2:/5/Phone/${phoneId}/${mp3FileName}`;
-    const mp3Stream = fs.createReadStream(mp3FilePath);
     const mp3Form = new FormData();
-    mp3Form.append('file', mp3Stream, { filename: mp3FileName });
+    mp3Form.append('file', fs.createReadStream(mp3FilePath), { filename: mp3FileName });
     await axios.post(`https://www.call2all.co.il/ym/api/UploadFile?token=${token}&path=${encodeURIComponent(mp3UploadPath)}`, mp3Form, { headers: mp3Form.getHeaders() });
 
     const wavUploadPath = `ivr2:/5/Phone/${phoneId}/${wavFileName}`;
-    const wavStream = fs.createReadStream(wavFilePath);
     const wavForm = new FormData();
-    wavForm.append('file', wavStream, { filename: wavFileName });
+    wavForm.append('file', fs.createReadStream(wavFilePath), { filename: wavFileName });
     await axios.post(`https://www.call2all.co.il/ym/api/UploadFile?token=${token}&path=${encodeURIComponent(wavUploadPath)}`, wavForm, { headers: wavForm.getHeaders() });
 
     console.log(`📤 קבצים הועלו לשלוחה`);
 
+    // שמירת התוצאה
     results.push({ index: baseName, transcription: transcription.text, answer });
     if (results.length > 10) results.shift();
     fileIndex++;
@@ -143,17 +151,20 @@ async function checkAndProcessNextFile() {
   }
 }
 
+// הרצת בדיקת קובץ כל שנייה
 setInterval(checkAndProcessNextFile, 1000);
 
+// מסך צפייה בתוצאות
 app.get('/results', (req, res) => {
   res.json(results);
 });
 
+// דף בית
 app.get('/', (req, res) => {
   res.send('✅ השרת פעיל');
 });
 
-// פינג עצמי
+// מנגנון פינג עצמי (כדי למנוע שינה ברנדר)
 async function selfPing() {
   try {
     const url = process.env.SELF_PING_URL || `http://localhost:${port}/`;
@@ -162,8 +173,9 @@ async function selfPing() {
     console.error('❌ שגיאה בפינג:', err.message);
   }
 }
-setInterval(selfPing, 60 * 10000);
+setInterval(selfPing, 60 * 10000); // כל 10 דקות
 
+// הפעלת השרת
 app.listen(port, () => {
   console.log(`🚀 השרת פעיל על http://localhost:${port}`);
 });
