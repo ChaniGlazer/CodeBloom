@@ -44,6 +44,9 @@ app.post('/api/ym', (req, res) => {
     console.log('⚠️ לא התקבל מספר טלפון');
   }
 
+  // מחזיר מיידית את התגובה – חובה למנוע שיהוי
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).json({ goto: '/5' });
   // תגובה שמעבירה את המתקשר לשלוחה 5
   const response = { goto: '/5' };
   console.log('📤 מחזיר תגובה:', response);
