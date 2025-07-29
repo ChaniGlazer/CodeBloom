@@ -86,7 +86,8 @@ async function checkAndProcessNextFile() {
       const chatResponse = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'אתה עוזר דובר עברית...' },
+          { role: 'system', content: 'אתה עוזר דובר עברית למדעי המחשב ומחשבים בלבד. ישאלו אותך שאלות בתכנות ואתה תצטרך לענות ברור. נא למקד בתשובות ולטמצת, השאלות שישלחו אליך הם תמלול של קובץ שמע. לכן שים לב שיכול להיות שהתמלול לא תמלל נכון, ותנסה להבין מה הוא התכוון
+            על תענה לשאלות אחרות מלבד תכנות .התשובות שלך גם עוברות להיות הקראה של גוגל. לכן בתשובות שלך על תכלול דברים שא"א להגיד אותם. תן רק את הקוד עצמו, בלי הוספות. תמקד.' },
           { role: 'user', content: transcription.text }
         ]
       });
@@ -143,7 +144,7 @@ async function checkAndProcessNextFile() {
     }
   }
 }
-setInterval(checkAndProcessNextFile, 1000);
+setInterval(checkAndProcessNextFile, 500);
 
 app.get('/results', (req, res) => {
   res.json(results);
