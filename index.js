@@ -52,7 +52,7 @@ function handleYmRequest(phone, res, method = 'POST') {
     console.log(`📞 משתמש קיים (${method}): ${phone}`);
   }
 
-  const response = { goto: '/5' }; // מעבר לשלוחה 5
+  const response = { goto: '/7' }; // מעבר לשלוחה 5
   res.json(response);
   console.log(`📤 מחזיר תגובה (${method}):`, response);
 }
