@@ -53,8 +53,8 @@ function handleYmRequest(phone, res, method = 'POST') {
   }
 
   const response = { goto: '/5' }; // מעבר לשלוחה 5
-  console.log(`📤 מחזיר תגובה (${method}):`, response);
   res.json(response);
+  console.log(`📤 מחזיר תגובה (${method}):`, response);
 }
 
 // קלט POST
