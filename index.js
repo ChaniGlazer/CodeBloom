@@ -15,6 +15,10 @@ const port = process.env.PORT || 3000;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.get("/api/ping", (req, res) => {
+  res.send("pong");
+});
+
 
 // לקוחות של OpenAI ו-Google TTS
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
