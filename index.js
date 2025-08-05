@@ -115,14 +115,13 @@ async function checkAndProcessNextFile() {
       console.log(`🎤 תמלול (${phone}): ${transcription.text}`);
 
       // תשובה על פי הכללים
+      const roles = process.env.RULES;
       const chatResponse = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `אתה עוזר דובר עברית לענייני מדעי המחשב בלבד.
-השאלות שתקבל הן תוצאה של תמלול שמע. ענה תשובה תמציתית, בעברית תקינה בלבד.
-אין להשיב לשום דבר שאינו קשור לתכנות. השב רק בקוד או משפט קצר בתכנות.`.trim()
+            content: roles .trim()
           },
           { role: 'user', content: transcription.text }
         ]
