@@ -110,14 +110,14 @@ async function checkAndProcessNextFile() {
       const transcription = await openai.audio.transcriptions.create({
         file: fs.createReadStream(localFilePath),
         model: 'whisper-1',
-        language: 'he',
+    
       });
       console.log(`🎤 תמלול (${phone}): ${transcription.text}`);
 
       // תשובה על פי הכללים
       const roles = process.env.RULES;
       const chatResponse = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
