@@ -182,7 +182,7 @@ async function checkAndProcessNextFile() {
       } else {
         console.error(`❌ שגיאה (${phone}):`, err.message);
         user.shouldProcess = false;
-        user.awaitingFile = false;
+        user.awaitingFile = true;
       }
     } finally {
       user.isProcessing = false;
