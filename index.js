@@ -40,7 +40,7 @@ function padNumber(num) {
 function handleYmRequest(phone, res, method = 'POST') {
   if (!phone) {
     console.log(`⚠️ לא התקבל מספר טלפון (${method})`);
-    return res.json({});
+    return res.send(''); // שגיאה – החזר תגובה ריקה
   }
 
   if (!activeUsers.has(phone)) {
@@ -52,10 +52,11 @@ function handleYmRequest(phone, res, method = 'POST') {
     console.log(`📞 משתמש קיים (${method}): ${phone}`);
   }
 
-  const response = { goto: '/5' }; // מעבר לשלוחה 5
-  res.json(response);
-  console.log(`📤 מחזיר תגובה (${method}):`, response);
+  const responseText = 'go_to_folder=5'; // ✅ טקסט פשוט - בדיוק לפי ההוראות
+  res.send(responseText);
+  console.log(`📤 מחזיר תגובה (${method}):`, responseText);
 }
+
 
 // קלט POST
 app.post('/api/ym', (req, res) => {
